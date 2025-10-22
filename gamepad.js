@@ -38,12 +38,15 @@ class GamepadManager {
         this.perGamepadProfiles = new Map();
 
     // Sensitivity and thresholds
-    this.deadzone = 0.18;           // Deadzone for analog sticks (higher -> less sensitive)
-    this.triggerThreshold = 0.12;    // Threshold for trigger activation
-    this.stickThreshold = 0.6;      // Threshold for stick direction detection (higher -> requires more movement)
+    this.deadzone = 0.20;           // Deadzone for analog sticks (higher -> less sensitive)
+    this.triggerThreshold = 0.14;    // Threshold for trigger activation
+    this.stickThreshold = 0.72;      // Threshold for stick direction detection (higher -> requires more movement)
 
     // Input debouncing to prevent rapid-fire inputs
-    this.inputCooldown = 180;       // Milliseconds between inputs (180ms = ~5.5 inputs/second max)
+    this.inputCooldown = 220;       // Milliseconds between inputs (220ms = ~4.5 inputs/second max)
+
+    // Per-direction release gating to avoid multiple firings while held or jittering
+    this.awaitRelease = new Map(); // keys: 'direction_UP' etc. -> boolean
         this.lastInputTime = new Map(); // Track last input time for each direction/button
 
         // Current and previous gamepad states
@@ -104,6 +107,8 @@ class GamepadManager {
             this.triggerThreshold = 0.10;  // reasonable trigger threshold
             this.stickThreshold = 0.55;    // require moderate stick deflection
             this.inputCooldown = 160;      // slightly faster than default but still debounced
+            // Initialize awaitRelease entries for each direction to false
+            ['UP','DOWN','LEFT','RIGHT'].forEach(d => this.awaitRelease.set(`direction_${d}`, false));
         }
 
         // Store profile per-index
@@ -195,6 +200,15 @@ class GamepadManager {
 
             // Use a shared cooldown key for directions to avoid both d-pad and stick triggering the same direction
             const directionKey = `direction_${dpadButton}`;
+            // If we're waiting for release for this direction, skip
+            if (this.awaitRelease.get(directionKey)) {
+                // If the d-pad was released, clear awaitRelease
+                if (this.justReleased(dpadButton, gamepadIndex)) {
+                    this.awaitRelease.set(directionKey, false);
+                }
+                continue;
+            }
+
             if (justPressedNow && this.canProcessInput(directionKey)) {
                 console.log(`🎮 D-pad ${dpadButton} pressed, simulating ${arrowKey} keydown`);
                 this.simulateKeyboardEvent(arrowKey, 'keydown');
@@ -202,6 +216,8 @@ class GamepadManager {
                 setTimeout(() => {
                     this.simulateKeyboardEvent(arrowKey, 'keyup');
                 }, 50);
+                // Wait for release before allowing another trigger from this direction
+                this.awaitRelease.set(directionKey, true);
             }
         }
     }
@@ -226,7 +242,16 @@ class GamepadManager {
             // Use the same shared cooldown key as D-pad so the stick doesn't double-fire navigation
             const keyStateKey = `direction_${direction}`;
 
-            if (isActive && !this.simulatedKeys.has(keyStateKey) && this.canProcessInput(keyStateKey)) {
+            // If we're awaiting release for this direction, only clear it when stick returns below a lower hysteresis threshold
+            const lowerHysteresis = 0.25; // require axis to return below this before allowing another direction
+            if (this.awaitRelease.get(keyStateKey)) {
+                // If stick no longer active (magnitude low) clear awaitRelease
+                if (!isActive && Math.abs(leftStick.x) < lowerHysteresis && Math.abs(leftStick.y) < lowerHysteresis) {
+                    this.awaitRelease.set(keyStateKey, false);
+                }
+            }
+
+            if (!this.awaitRelease.get(keyStateKey) && isActive && !this.simulatedKeys.has(keyStateKey) && this.canProcessInput(keyStateKey)) {
                 console.log(`🎮 Left stick ${direction}, simulating ${arrowKey} keydown`);
                 this.simulatedKeys.add(keyStateKey);
                 this.simulateKeyboardEvent(arrowKey, 'keydown');
@@ -235,6 +260,8 @@ class GamepadManager {
                     this.simulatedKeys.delete(keyStateKey);
                     this.simulateKeyboardEvent(arrowKey, 'keyup');
                 }, 50);
+                // Set awaitRelease so small jitter doesn't re-trigger immediately
+                this.awaitRelease.set(keyStateKey, true);
             }
         }
     }
