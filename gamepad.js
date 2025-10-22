@@ -37,12 +37,13 @@ class GamepadManager {
         // Per-gamepad profile overrides (keyed by gamepad.index)
         this.perGamepadProfiles = new Map();
 
-        this.deadzone = 0.15;           // Deadzone for analog sticks
-        this.triggerThreshold = 0.1;    // Threshold for trigger activation
-        this.stickThreshold = 0.5;      // Threshold for stick direction detection
+    // Sensitivity and thresholds
+    this.deadzone = 0.18;           // Deadzone for analog sticks (higher -> less sensitive)
+    this.triggerThreshold = 0.12;    // Threshold for trigger activation
+    this.stickThreshold = 0.6;      // Threshold for stick direction detection (higher -> requires more movement)
 
-        // Input debouncing to prevent rapid-fire inputs
-        this.inputCooldown = 100;       // Milliseconds between inputs (100ms = 10 inputs/second max)
+    // Input debouncing to prevent rapid-fire inputs
+    this.inputCooldown = 180;       // Milliseconds between inputs (180ms = ~5.5 inputs/second max)
         this.lastInputTime = new Map(); // Track last input time for each direction/button
 
         // Current and previous gamepad states
@@ -98,10 +99,11 @@ class GamepadManager {
             // Use same button layout but tweak thresholds for Ally hardware
             profile = this.defaultProfile;
 
-            // Slightly more sensitive thresholds for the Ally
-            this.deadzone = 0.12;
-            this.triggerThreshold = 0.08;
-            this.stickThreshold = 0.45;
+            // Slightly less sensitive than original aggressive defaults, but still responsive
+            this.deadzone = 0.16;          // a bit lower than default deadzone but still avoids jitter
+            this.triggerThreshold = 0.10;  // reasonable trigger threshold
+            this.stickThreshold = 0.55;    // require moderate stick deflection
+            this.inputCooldown = 160;      // slightly faster than default but still debounced
         }
 
         // Store profile per-index
@@ -191,7 +193,9 @@ class GamepadManager {
         for (const [dpadButton, arrowKey] of Object.entries(this.directionToKeyMap)) {
             const justPressedNow = this.justPressed(dpadButton, gamepadIndex);
 
-            if (justPressedNow && this.canProcessInput(`dpad_${dpadButton}`)) {
+            // Use a shared cooldown key for directions to avoid both d-pad and stick triggering the same direction
+            const directionKey = `direction_${dpadButton}`;
+            if (justPressedNow && this.canProcessInput(directionKey)) {
                 console.log(`🎮 D-pad ${dpadButton} pressed, simulating ${arrowKey} keydown`);
                 this.simulateKeyboardEvent(arrowKey, 'keydown');
                 // Simulate immediate keyup to prevent holding
@@ -219,8 +223,9 @@ class GamepadManager {
 
         for (const [direction, isActive] of Object.entries(directions)) {
             const arrowKey = this.directionToKeyMap[direction];
-            const keyStateKey = `stick_${direction}`;
-            
+            // Use the same shared cooldown key as D-pad so the stick doesn't double-fire navigation
+            const keyStateKey = `direction_${direction}`;
+
             if (isActive && !this.simulatedKeys.has(keyStateKey) && this.canProcessInput(keyStateKey)) {
                 console.log(`🎮 Left stick ${direction}, simulating ${arrowKey} keydown`);
                 this.simulatedKeys.add(keyStateKey);
