@@ -37,6 +37,9 @@ Arrow →  → D-pad Right + Left Stick Right ✅
 - Shows mapping: "A key pressed - mapped to ROG Ally A button"
 - Tracks unified input when both keyboard and controller are active
 
+### **Auto-detection**
+- The app will now auto-detect an ASUS ROG Ally when connected and apply a tuned input profile (lower deadzone and trigger thresholds) for snappier controls. See `gamepad.js` connect logs for confirmation.
+
 ### **Unified Input System**
 - **Combines inputs**: Both keyboard A and controller A button work together
 - **No conflicts**: You can use keyboard A key even when controller is connected

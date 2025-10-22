@@ -137,9 +137,39 @@ function update() {
     
     // Handle button presses
     handleInput();
+    // Update debug overlay
+    updateGamepadDebug();
     
     // Continue loop
     animationFrameId = requestAnimationFrame(update);
+}
+
+// Update the debug overlay element with current gamepad info
+function updateGamepadDebug() {
+    const elConnected = document.getElementById('debug-connected');
+    const elId = document.getElementById('debug-id');
+    const elButtons = document.getElementById('debug-buttons');
+    const elAxes = document.getElementById('debug-axes');
+
+    if (!elConnected) return;
+
+    const gp = navigator.getGamepads()[0];
+    if (gp && gp.connected) {
+        elConnected.textContent = 'Connected: Yes';
+        elId.textContent = `ID: ${gp.id}`;
+        // Buttons list
+        const pressed = [];
+        gp.buttons.forEach((b, i) => { if (b.pressed) pressed.push(i); });
+        elButtons.textContent = `Buttons: ${pressed.length > 0 ? pressed.join(', ') : 'None'}`;
+        // Axes values (first 4)
+        const axes = gp.axes.slice(0, 4).map(a => a.toFixed(2));
+        elAxes.textContent = `Axes: [${axes.join(', ')}]`;
+    } else {
+        elConnected.textContent = 'Connected: No';
+        elId.textContent = 'ID: -';
+        elButtons.textContent = 'Buttons: -';
+        elAxes.textContent = 'Axes: -';
+    }
 }
 
 // These UI update functions are no longer needed since we removed the UI elements

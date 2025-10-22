@@ -3,34 +3,39 @@
 
 class GamepadManager {
     constructor() {
-        // Button mapping for standard gamepad (Xbox/ROG Ally layout)
-        this.BUTTONS = {
-            A: 0,           // Bottom face button
-            B: 1,           // Right face button
-            X: 2,           // Left face button
-            Y: 3,           // Top face button
-            LB: 4,          // Left shoulder
-            RB: 5,          // Right shoulder
-            LT: 6,          // Left trigger
-            RT: 7,          // Right trigger
-            VIEW: 8,        // View/Back button
-            MENU: 9,        // Menu/Start button
-            LS: 10,         // Left stick click
-            RS: 11,         // Right stick click
-            UP: 12,         // D-pad up
-            DOWN: 13,       // D-pad down
-            LEFT: 14,       // D-pad left
-            RIGHT: 15,      // D-pad right
-            HOME: 16        // Home/Guide button (if available)
+        // Default profile mapping for standard gamepads (Xbox-style / ROG Ally)
+        this.defaultProfile = {
+            BUTTONS: {
+                A: 0,           // Bottom face button
+                B: 1,           // Right face button
+                X: 2,           // Left face button
+                Y: 3,           // Top face button
+                LB: 4,          // Left shoulder
+                RB: 5,          // Right shoulder
+                LT: 6,          // Left trigger (index - often analog)
+                RT: 7,          // Right trigger
+                VIEW: 8,        // View/Back button
+                MENU: 9,        // Menu/Start button
+                LS: 10,         // Left stick click
+                RS: 11,         // Right stick click
+                UP: 12,         // D-pad up
+                DOWN: 13,       // D-pad down
+                LEFT: 14,       // D-pad left
+                RIGHT: 15,      // D-pad right
+                HOME: 16        // Home/Guide button (if available)
+            },
+
+            // Axis mapping for analog sticks
+            AXES: {
+                LS_X: 0,        // Left stick X axis
+                LS_Y: 1,        // Left stick Y axis
+                RS_X: 2,        // Right stick X axis
+                RS_Y: 3         // Right stick Y axis
+            }
         };
 
-        // Axis mapping for analog sticks
-        this.AXES = {
-            LS_X: 0,        // Left stick X axis
-            LS_Y: 1,        // Left stick Y axis
-            RS_X: 2,        // Right stick X axis
-            RS_Y: 3         // Right stick Y axis
-        };
+        // Per-gamepad profile overrides (keyed by gamepad.index)
+        this.perGamepadProfiles = new Map();
 
         this.deadzone = 0.15;           // Deadzone for analog sticks
         this.triggerThreshold = 0.1;    // Threshold for trigger activation
@@ -63,11 +68,45 @@ class GamepadManager {
         // Listen for gamepad connection/disconnection
         window.addEventListener('gamepadconnected', (e) => {
             console.log('🎮 Gamepad connected:', e.gamepad.id);
+            // Apply a profile (if recognized) for this device
+            try {
+                this.applyProfile(e.gamepad);
+            } catch (err) {
+                console.warn('Error applying profile for connected gamepad:', err);
+            }
         });
 
         window.addEventListener('gamepaddisconnected', (e) => {
             console.log('🎮 Gamepad disconnected:', e.gamepad.id);
+            // Remove per-gamepad profile when disconnected
+            this.perGamepadProfiles.delete(e.gamepad.index);
         });
+    }
+
+    // Detect and apply a profile for a connected gamepad
+    applyProfile(gamepad) {
+        if (!gamepad) return;
+        const id = (gamepad.id || '').toLowerCase();
+        const idx = gamepad.index;
+
+        // Default to using the defaultProfile
+        let profile = this.defaultProfile;
+
+        // Recognize ASUS ROG Ally devices by id string
+        if (/rog ally|asus ally|ally/i.test(gamepad.id)) {
+            console.log('🎮 Detected ASUS ROG Ally - applying tuned profile');
+            // Use same button layout but tweak thresholds for Ally hardware
+            profile = this.defaultProfile;
+
+            // Slightly more sensitive thresholds for the Ally
+            this.deadzone = 0.12;
+            this.triggerThreshold = 0.08;
+            this.stickThreshold = 0.45;
+        }
+
+        // Store profile per-index
+        this.perGamepadProfiles.set(idx, profile);
+        console.log('🎮 Applied profile for gamepad index', idx, 'profile:', profile);
     }
 
     // Update gamepad state (call this every frame)
@@ -287,12 +326,18 @@ class GamepadManager {
         return gamepads[index] || null;
     }
 
+    // Get effective profile (per-gamepad if available, else default)
+    getProfileForIndex(gamepadIndex = 0) {
+        return this.perGamepadProfiles.get(gamepadIndex) || this.defaultProfile;
+    }
+
     // Check if a button is currently pressed
     isButtonDown(buttonName, gamepadIndex = 0) {
         const gamepad = this.currentState.get(gamepadIndex);
         if (!gamepad) return false;
 
-        const buttonIndex = this.BUTTONS[buttonName];
+        const profile = this.getProfileForIndex(gamepadIndex);
+        const buttonIndex = profile.BUTTONS[buttonName];
         if (buttonIndex === undefined) return false;
 
         const button = gamepad.buttons[buttonIndex];
@@ -313,7 +358,8 @@ class GamepadManager {
         
         if (!currentGamepad) return false;
 
-        const buttonIndex = this.BUTTONS[buttonName];
+    const profile = this.getProfileForIndex(gamepadIndex);
+    const buttonIndex = profile.BUTTONS[buttonName];
         if (buttonIndex === undefined) return false;
 
         const currentButton = currentGamepad.buttons[buttonIndex];
@@ -341,7 +387,8 @@ class GamepadManager {
         
         if (!previousGamepad) return false;
 
-        const buttonIndex = this.BUTTONS[buttonName];
+    const profile = this.getProfileForIndex(gamepadIndex);
+    const buttonIndex = profile.BUTTONS[buttonName];
         if (buttonIndex === undefined) return false;
 
         const currentButton = currentGamepad?.buttons[buttonIndex];
@@ -367,13 +414,14 @@ class GamepadManager {
         const gamepad = this.currentState.get(gamepadIndex);
         if (!gamepad) return { x: 0, y: 0, magnitude: 0 };
 
+        const profile = this.getProfileForIndex(gamepadIndex);
         let xAxis, yAxis;
         if (stickName === 'LEFT') {
-            xAxis = this.AXES.LS_X;
-            yAxis = this.AXES.LS_Y;
+            xAxis = profile.AXES.LS_X;
+            yAxis = profile.AXES.LS_Y;
         } else if (stickName === 'RIGHT') {
-            xAxis = this.AXES.RS_X;
-            yAxis = this.AXES.RS_Y;
+            xAxis = profile.AXES.RS_X;
+            yAxis = profile.AXES.RS_Y;
         } else {
             return { x: 0, y: 0, magnitude: 0 };
         }
@@ -408,7 +456,8 @@ class GamepadManager {
         const gamepad = this.currentState.get(gamepadIndex);
         if (!gamepad) return 0;
 
-        const buttonIndex = this.BUTTONS[triggerName];
+    const profile = this.getProfileForIndex(gamepadIndex);
+    const buttonIndex = profile.BUTTONS[triggerName];
         if (buttonIndex === undefined) return 0;
 
         const button = gamepad.buttons[buttonIndex];
@@ -418,7 +467,8 @@ class GamepadManager {
     // Get all currently pressed buttons
     getPressedButtons(gamepadIndex = 0) {
         const pressed = [];
-        for (const [name, index] of Object.entries(this.BUTTONS)) {
+        const profile = this.getProfileForIndex(gamepadIndex);
+        for (const [name] of Object.entries(profile.BUTTONS)) {
             if (this.isButtonDown(name, gamepadIndex)) {
                 pressed.push(name);
             }
