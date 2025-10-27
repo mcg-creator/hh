@@ -7,10 +7,11 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app">
-    <div id="game-container">
-      <div id="windows-shell">
-        <div id="app-container">
+  <div class="scale-wrapper" id="scale-wrapper">
+    <div id="app">
+      <div id="game-container">
+        <div id="windows-shell">
+          <div id="app-container">
           
           <!-- Top Navigation (inside app-container) -->
           <nav id="top-nav"></nav>
@@ -93,8 +94,74 @@
       </div>
     </div>
   </div>
+  </div>
   
   <script>
+    // Dynamic scaling system for 1280x720 content
+    function initializeScaling() {
+      const scaleWrapper = document.getElementById('scale-wrapper');
+      if (!scaleWrapper) return;
+
+      let resizeTimeout;
+
+      function updateScale() {
+        const targetWidth = 1280;
+        const targetHeight = 720;
+        const targetAspectRatio = targetWidth / targetHeight;
+        
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const windowAspectRatio = windowWidth / windowHeight;
+        
+        let scale;
+        
+        if (windowAspectRatio > targetAspectRatio) {
+          // Window is wider than target aspect ratio, scale by height
+          scale = windowHeight / targetHeight;
+        } else {
+          // Window is taller than target aspect ratio, scale by width
+          scale = windowWidth / targetWidth;
+        }
+        
+        // Ensure minimum scale to prevent content from becoming too small
+        scale = Math.max(scale, 0.3);
+        
+        // Apply the scaling transform with browser prefixes
+        const transform = `scale(${scale})`;
+        scaleWrapper.style.webkitTransform = transform;
+        scaleWrapper.style.mozTransform = transform;
+        scaleWrapper.style.msTransform = transform;
+        scaleWrapper.style.transform = transform;
+        
+        // Optional: log the scale for debugging
+        console.log(`Scaling factor: ${scale.toFixed(3)} (Window: ${windowWidth}x${windowHeight})`);
+      }
+      
+      // Debounced resize handler for better performance
+      function handleResize() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(updateScale, 100);
+      }
+      
+      // Update scale on window resize
+      window.addEventListener('resize', handleResize);
+      
+      // Update scale on orientation change for mobile devices
+      window.addEventListener('orientationchange', () => {
+        setTimeout(updateScale, 200);
+      });
+      
+      // Initial scale calculation
+      updateScale();
+    }
+    
+    // Initialize scaling when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeScaling);
+    } else {
+      initializeScaling();
+    }
+
     // Game audio management system
     let currentGameAudio = null;
     let gameAudioFadeInterval = null;
