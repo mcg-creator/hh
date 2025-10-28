@@ -36,8 +36,10 @@ class GamepadManager {
         this.triggerThreshold = 0.1;    // Threshold for trigger activation
 
         // Current and previous gamepad states
-        this.currentState = new Map();
-        this.previousState = new Map();
+        this.pad = null;
+        this._prevButtons = [];
+        this._justPressed = [];
+        this.axes = [];
 
         // Listen for gamepad connection/disconnection
         window.addEventListener('gamepadconnected', (e) => {
@@ -51,15 +53,49 @@ class GamepadManager {
 
     // Update gamepad state (call this every frame)
     update() {
-        this.previousState = new Map(this.currentState);
-        this.currentState.clear();
+        const pads = (navigator.getGamepads && navigator.getGamepads()) || [];
+        this.pad = pads.find(p => p && p.connected) || null;
 
-        const gamepads = navigator.getGamepads();
-        for (const gamepad of gamepads) {
-            if (gamepad) {
-                this.currentState.set(gamepad.index, gamepad);
-            }
+        if (!this.pad) { 
+            this._prevButtons = []; 
+            return; 
         }
+
+        // cache buttons
+        const btns = this.pad.buttons.map(b => !!b.pressed);
+        this._justPressed = btns.map((now, i) => now && !this._prevButtons[i]);
+        this._prevButtons = btns;
+
+        // axes
+        this.axes = this.pad.axes.slice(0); // [lx, ly, rx, ry]
+    }
+
+    isConnected() { 
+        return !!this.pad; 
+    }
+    
+    getStick(name) {
+        if (!this.pad) return {x:0, y:0};
+        const x = this.axes[0] || 0, y = this.axes[1] || 0;
+        return name === 'LEFT' ? {x, y} : {x:0, y:0};
+    }
+    
+    getDpad() {
+        if (!this.pad) return null;
+        const b = this.pad.buttons;
+        return { 
+            up: !!b[12]?.pressed, 
+            down: !!b[13]?.pressed, 
+            left: !!b[14]?.pressed, 
+            right: !!b[15]?.pressed 
+        };
+    }
+    
+    justPressed(name) {
+        if (!this.pad) return false;
+        const map = { A:0, B:1, X:2, Y:3 };
+        const i = map[name];
+        return i != null ? !!this._justPressed[i] : false;
     }
 
     // Get the first connected gamepad

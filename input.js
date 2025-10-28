@@ -17,6 +17,20 @@ class InputManager {
         this.initialDelay = 220; // ms before first repeat
         this.repeatRate = 85; // ms per repeat (≈ 12 Hz)
         
+        // New timing properties for simplified system
+        this._activeDir = null;
+        this._nextRepeatAt = 0;
+        this._firstDelay = 220;   // ms
+        this._repeatDelay = 85;   // ms
+        this._deadzone = 0.32;
+        
+        // Timing control for edge detection and repeats
+        this.lastInputTime = 0;
+        this.currentDirection = null;
+        this.isFirstInput = true;
+        this.initialDelay = 220; // ms before first repeat
+        this.repeatRate = 85; // ms per repeat (≈ 12 Hz)
+        
         // Debug mode
         this.debugMode = window.location.search.includes('debug');
         this.lastDebugInfo = null;
@@ -52,20 +66,77 @@ class InputManager {
             this.updateDebugInfo(type, payload);
         }
     }
+    
+    // Helper method for dominant axis detection
+    _getDominantDirFromAxes(ax, ay) {
+        const axAbs = Math.abs(ax), ayAbs = Math.abs(ay);
+        if (axAbs < this._deadzone && ayAbs < this._deadzone) return null;
+        if (axAbs >= ayAbs) return ax > 0 ? 'right' : 'left';
+        return ay > 0 ? 'down' : 'up';
+    }
 
     // Update both keyboard and gamepad input systems
-    update() {
+    update(ts = performance.now()) {
         this.keyboard.update();
         this.gamepad.update();
         
-        // Handle input preference switching
-        this.handleInputPreference();
-        
-        // Process navigation inputs with timing control
-        this.processNavigationInputs();
-        
-        // Process select inputs (A button)
-        this.processSelectInputs();
+        // Prefer gamepad if any connected
+        this.preferGamepad = this.gamepad.isConnected();
+
+        // ----- SELECT (A button or keyboard) edge only
+        const aPressed = this.preferGamepad ? this.gamepad.justPressed('A') : false;
+        const kSelect = this.keyboard.justPressed('SELECT');
+        if (aPressed || kSelect) {
+            console.log('[INPUT] select');
+            this.emit('select', { source: this.preferGamepad ? 'gamepad' : 'keyboard' });
+            // optional rumble
+            if (this.rumble) {
+                this.rumble(0.4, 100).catch(() => {});
+            }
+        }
+
+        // ----- NAV (D-pad / stick OR arrows)
+        let dir = null;
+
+        // Prefer D-pad if pressed
+        const dpad = this.gamepad.getDpad?.();
+        if (this.preferGamepad && dpad) {
+            if (dpad.left) dir = 'left';
+            else if (dpad.right) dir = 'right';
+            else if (dpad.up) dir = 'up';
+            else if (dpad.down) dir = 'down';
+        }
+
+        // Else use dominant stick axis
+        if (!dir && this.preferGamepad) {
+            const { x, y } = this.gamepad.getStick('LEFT') || { x: 0, y: 0 };
+            dir = this._getDominantDirFromAxes(x, y);
+        }
+
+        // Keyboard fallback
+        if (!dir) {
+            dir = this.keyboard.getArrowDir?.();
+        }
+
+        // Repeat/edge handling
+        if (!dir) {
+            // reset when neutral
+            this._activeDir = null;
+            this._nextRepeatAt = 0;
+        } else {
+            if (this._activeDir !== dir) {
+                // new direction edge
+                this._activeDir = dir;
+                this._nextRepeatAt = ts + this._firstDelay;
+                console.log('[INPUT] nav edge ->', dir);
+                this.emit('nav', { dir, mode: 'edge' });
+            } else if (ts >= this._nextRepeatAt) {
+                // held repeat
+                this._nextRepeatAt = ts + this._repeatDelay;
+                // console.log('[INPUT] nav repeat ->', dir);
+                this.emit('nav', { dir, mode: 'repeat' });
+            }
+        }
     }
     
     // Handle automatic switching between gamepad and keyboard

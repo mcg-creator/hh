@@ -243,4 +243,25 @@ class KeyboardManager {
             'Triggers': 'Z (LT), C (RT)'
         };
     }
+    
+    // Method to get arrow direction for InputManager
+    getArrowDir() {
+        if (this.keysDown.has('ArrowUp')) return 'up';
+        if (this.keysDown.has('ArrowDown')) return 'down';
+        if (this.keysDown.has('ArrowLeft')) return 'left';
+        if (this.keysDown.has('ArrowRight')) return 'right';
+        return null;
+    }
+    
+    // Method to check if SELECT button was just pressed
+    justPressed(buttonName) {
+        if (buttonName === 'SELECT') {
+            // Check if spacebar, A, or S was just pressed
+            const selectKeys = [' ', 'a', 'A', 's', 'S', 'Enter'];
+            return selectKeys.some(key => 
+                this.keysDown.has(key) && !this.prevKeysDown.has(key)
+            );
+        }
+        return false;
+    }
 }
