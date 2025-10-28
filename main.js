@@ -9,6 +9,36 @@ let navAudio;
 let carouselAudio;
 let carouselNavAudio;
 let lastTick = 0;
+let audioUnlocked = false;
+
+// Attempt to unlock audio playback after a user gesture (required by autoplay policies)
+function attemptUnlockAudio() {
+    if (audioUnlocked) return;
+    const audios = [navAudio, carouselAudio, carouselNavAudio].filter(Boolean);
+    if (!audios.length) return;
+    const playPromises = audios.map(a => {
+        const originalVolume = a.volume;
+        a.volume = 0; // mute during unlock
+        try {
+            return a.play().then(() => {
+                // Immediately pause and reset so real playback later starts at 0
+                a.pause();
+                a.currentTime = 0;
+                a.volume = originalVolume;
+            });
+        } catch (err) {
+            a.volume = originalVolume;
+            return Promise.resolve();
+        }
+    });
+    Promise.all(playPromises).then(() => {
+        audioUnlocked = true;
+        console.log('[AUDIO] Unlocked');
+    }).catch(() => {
+        // If fails (e.g., only gamepad input), prompt user gently
+        console.log('[AUDIO] Unlock attempt failed; press any key or tap once to enable sound');
+    });
+}
 
 // Focus movement function
 function moveFocus(dir) {
@@ -40,8 +70,14 @@ function init() {
     inputManager = new InputManager();
     
     // SUBSCRIBE to semantic events (critical)
-    inputManager.on('nav', e => moveFocus(e.dir));
-    inputManager.on('select', () => activateCurrent());
+    inputManager.on('nav', e => {
+        attemptUnlockAudio(); // ensure audio primed before UI may attempt playback
+        moveFocus(e.dir);
+    });
+    inputManager.on('select', () => {
+        attemptUnlockAudio();
+        activateCurrent();
+    });
     
     // Load navigation sound
     navAudio = new Audio('assets/sounds/nav.mp3');
@@ -95,6 +131,11 @@ function init() {
     
     // Kick the loop unconditionally
     requestAnimationFrame(tick);
+
+    // Attach user gesture listeners (one-shot) to unlock audio as early as possible
+    ['keydown','mousedown','pointerdown','touchstart'].forEach(ev => {
+        window.addEventListener(ev, attemptUnlockAudio, { once: true, passive: true });
+    });
 }
 
 function tick(ts) {
