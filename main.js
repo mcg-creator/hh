@@ -13,6 +13,7 @@ let audioUnlocked = false;
 // Track whether focus is currently on top navigation or inside a carousel.
 // We infer transitions based on vertical movement (up/down) nav events.
 let focusRegion = 'nav'; // 'nav' | 'carousel'
+let pendingSound = null; // queue first sound if fired before unlock
 
 // Attempt to unlock audio playback after a user gesture (required by autoplay policies)
 function attemptUnlockAudio() {
@@ -37,6 +38,14 @@ function attemptUnlockAudio() {
     Promise.all(playPromises).then(() => {
         audioUnlocked = true;
         console.log('[AUDIO] Unlocked');
+        // replay queued sound if any
+        if (pendingSound) {
+            const { type } = pendingSound;
+            pendingSound = null;
+            if (type === 'nav') playNavSound();
+            else if (type === 'carousel') playCarouselSound();
+            else if (type === 'carouselRow') playCarouselNavSound();
+        }
     }).catch(() => {
         // If fails (e.g., only gamepad input), prompt user gently
         console.log('[AUDIO] Unlock attempt failed; press any key or tap once to enable sound');
@@ -146,18 +155,17 @@ function init() {
 // dir: 'left' | 'right' | 'up' | 'down'
 // mode: 'edge' | 'repeat'
 function handleNavSound(dir, mode) {
-    if (!audioUnlocked) return; // wait until unlocked (attemptUnlockAudio will trigger soon)
     // Only play on edge events to avoid overwhelming audio on repeats
     if (mode !== 'edge') return;
 
     // Vertical movement may switch focus region
     if (dir === 'down' && focusRegion === 'nav') {
         focusRegion = 'carousel';
-        playCarouselSound(); // entering carousel
+        if (!audioUnlocked) pendingSound = { type: 'carousel' }; else playCarouselSound();
         return;
     } else if (dir === 'up' && focusRegion === 'carousel') {
         focusRegion = 'nav';
-        playNavSound(); // returning to nav bar
+        if (!audioUnlocked) pendingSound = { type: 'nav' }; else playNavSound();
         return;
     }
 
@@ -165,10 +173,10 @@ function handleNavSound(dir, mode) {
     if (dir === 'left' || dir === 'right') {
         if (focusRegion === 'nav') {
             // Simple nav bar item change
-            playNavSound();
+            if (!audioUnlocked) pendingSound = { type: 'nav' }; else playNavSound();
         } else {
             // Carousel row movement
-            playCarouselNavSound();
+            if (!audioUnlocked) pendingSound = { type: 'carouselRow' }; else playCarouselNavSound();
         }
     }
 }
