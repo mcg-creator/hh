@@ -20,6 +20,21 @@ function init() {
     // Create input manager (supports both keyboard and gamepad)
     inputManager = new InputManager();
     
+    // Set up InputManager event listeners for navigation
+    inputManager.on('nav', (event) => {
+        // Call the appropriate navigation function from the HTML
+        if (typeof window.handleNavigationInput === 'function') {
+            window.handleNavigationInput(event.dir);
+        }
+    });
+    
+    inputManager.on('select', (event) => {
+        // Call the appropriate selection function from the HTML
+        if (typeof window.handleSelectInput === 'function') {
+            window.handleSelectInput();
+        }
+    });
+    
     // Load navigation sound
     navAudio = new Audio('assets/sounds/nav.mp3');
     navAudio.preload = 'auto';

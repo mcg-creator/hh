@@ -2137,27 +2137,25 @@
       updateBottomControls();
     }
 
-    // Enhanced keyboard support with two-level navigation
-    document.addEventListener("keydown", (e) => {
+    // Bridge functions for unified input system (called by InputManager)
+    window.handleNavigationInput = function(direction) {
       if (navigationFocus === "nav") {
         // Navigation bar is focused - left/right moves through tabs
-        if (e.key === "ArrowRight") {
+        if (direction === "right") {
           selectedIndex = (selectedIndex + 1) % tabs.length;
           renderNav();
           // Play navigation sound
           if (window.playNavSound) {
             window.playNavSound();
           }
-          e.preventDefault();
-        } else if (e.key === "ArrowLeft") {
+        } else if (direction === "left") {
           selectedIndex = (selectedIndex - 1 + tabs.length) % tabs.length;
           renderNav();
           // Play navigation sound
           if (window.playNavSound) {
             window.playNavSound();
           }
-          e.preventDefault();
-        } else if (e.key === "ArrowDown") {
+        } else if (direction === "down") {
           // Move focus down to carousel (games, apps, friends, gallery, notifications, settings, or copilot)
           if (tabs[selectedIndex] === "games" || tabs[selectedIndex] === "apps" || tabs[selectedIndex] === "friends" || tabs[selectedIndex] === "gallery" || tabs[selectedIndex] === "notifications" || tabs[selectedIndex] === "settings" || tabs[selectedIndex] === "copilot") {
             navigationFocus = "carousel";
@@ -2167,11 +2165,10 @@
               window.playCarouselSound();
             }
           }
-          e.preventDefault();
         }
       } else if (navigationFocus === "carousel") {
         // Carousel is focused - left/right moves through items
-        if (e.key === "ArrowRight") {
+        if (direction === "right") {
           if (tabs[selectedIndex] === "games") {
             navigateGamesCarousel('right');
           } else if (tabs[selectedIndex] === "apps") {
@@ -2191,8 +2188,7 @@
           if (window.playCarouselNavSound) {
             window.playCarouselNavSound();
           }
-          e.preventDefault();
-        } else if (e.key === "ArrowLeft") {
+        } else if (direction === "left") {
           if (tabs[selectedIndex] === "games") {
             navigateGamesCarousel('left');
           } else if (tabs[selectedIndex] === "apps") {
@@ -2212,8 +2208,7 @@
           if (window.playCarouselNavSound) {
             window.playCarouselNavSound();
           }
-          e.preventDefault();
-        } else if (e.key === "ArrowUp") {
+        } else if (direction === "up") {
           // Move focus back up to navigation bar, or navigate stack items for settings/copilot
           if (tabs[selectedIndex] === "settings") {
             // Try to navigate within stack first, if it returns false then go to nav bar
@@ -2243,37 +2238,30 @@
               window.playNavSound();
             }
           }
-          e.preventDefault();
-        } else if (e.key === "ArrowDown") {
+        } else if (direction === "down") {
           // Navigate stack items for settings/copilot, but don't cycle at bottom
           if (tabs[selectedIndex] === "settings") {
             navigateStackItems('down'); // If it returns false, just stay at bottom item
           } else if (tabs[selectedIndex] === "copilot") {
             navigateCopilotStackItems('down'); // If it returns false, just stay at bottom item
           }
-          e.preventDefault();
         }
       }
-      
-      if (e.key === "Enter" || e.key === " ") {
-        if (navigationFocus === "nav") {
-          selectTab(selectedIndex);
-        }
-      } else if (e.key === "a" || e.key === "A") {
-        // Handle A key for battery mode cycling in settings carousel
-        if (navigationFocus === "carousel" && tabs[selectedIndex] === "settings") {
-          cycleBatteryMode();
-          cycleWifiMode();
-          cycleAirplaneMode();
-          cycleMusicMode();
-          cycleSfxMode();
-          cycleCaptionsMode();
-        }
-        e.preventDefault();
-      } else if (e.key === "d") {
-        e.preventDefault(); // Prevent zoom control
+    };
+
+    window.handleSelectInput = function() {
+      if (navigationFocus === "nav") {
+        selectTab(selectedIndex);
+      } else if (navigationFocus === "carousel" && tabs[selectedIndex] === "settings") {
+        // Handle A button for battery mode cycling in settings carousel
+        cycleBatteryMode();
+        cycleWifiMode();
+        cycleAirplaneMode();
+        cycleMusicMode();
+        cycleSfxMode();
+        cycleCaptionsMode();
       }
-    });
+    };
 
     // Settings system - control cards with single and stacked items
     let settings = [];
