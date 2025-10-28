@@ -40,6 +40,8 @@ class GamepadManager {
         this._prevButtons = [];
         this._justPressed = [];
         this.axes = [];
+    this._lastPadId = null; // for connection change logging
+    this._lastLogTs = 0;    // throttle diagnostic logs
 
         // Listen for gamepad connection/disconnection
         window.addEventListener('gamepadconnected', (e) => {
@@ -53,21 +55,44 @@ class GamepadManager {
 
     // Update gamepad state (call this every frame)
     update() {
-        const pads = (navigator.getGamepads && navigator.getGamepads()) || [];
-        this.pad = pads.find(p => p && p.connected) || null;
+        const pads = (navigator.getGamepads && navigator.getGamepads()) ? navigator.getGamepads() : [];
+        const connected = Array.from(pads).filter(p => p && p.connected);
+        this.pad = connected[0] || null;
 
-        if (!this.pad) { 
-            this._prevButtons = []; 
-            return; 
+        // Basic diagnostics (throttled to ~1/sec) when debug query present
+        const debug = window.location.search.includes('debug');
+        const now = performance.now();
+
+        if (this.pad) {
+            if (this.pad.id !== this._lastPadId) {
+                console.log('🎮 [Gamepad] Connected:', this.pad.id, 'Buttons:', this.pad.buttons.length, 'Axes:', this.pad.axes.length);
+                this._lastPadId = this.pad.id;
+            } else if (debug && now - this._lastLogTs > 1000) {
+                // Log a tiny snapshot (first 4 buttons + axes)
+                const sampleBtns = this.pad.buttons.slice(0, 6).map((b,i)=> (b.pressed?`#${i}`:'')).filter(Boolean).join(',') || 'none';
+                const ax = this.pad.axes.slice(0, 2).map(v=> v.toFixed(2));
+                console.log(`🎮 [Gamepad] Poll ok; pressed:[${sampleBtns}] axes:[${ax}]`);
+                this._lastLogTs = now;
+            }
+
+            // cache buttons
+            const btns = this.pad.buttons.map(b => !!b.pressed);
+            this._justPressed = btns.map((now, i) => now && !this._prevButtons[i]);
+            this._prevButtons = btns;
+            // axes
+            this.axes = this.pad.axes.slice(0); // [lx, ly, rx, ry]
+        } else {
+            if (this._lastPadId) {
+                console.log('🎮 [Gamepad] Disconnected');
+                this._lastPadId = null;
+            } else if (debug && now - this._lastLogTs > 1500) {
+                console.log('🎮 [Gamepad] No connected pads detected');
+                this._lastLogTs = now;
+            }
+            this._prevButtons = [];
+            this._justPressed = [];
+            this.axes = [0,0,0,0];
         }
-
-        // cache buttons
-        const btns = this.pad.buttons.map(b => !!b.pressed);
-        this._justPressed = btns.map((now, i) => now && !this._prevButtons[i]);
-        this._prevButtons = btns;
-
-        // axes
-        this.axes = this.pad.axes.slice(0); // [lx, ly, rx, ry]
     }
 
     isConnected() { 
@@ -93,150 +118,26 @@ class GamepadManager {
     
     justPressed(name) {
         if (!this.pad) return false;
-        const map = { A:0, B:1, X:2, Y:3 };
+        const map = { A:0, B:1, X:2, Y:3, LB:4, RB:5, LT:6, RT:7, VIEW:8, MENU:9 };
         const i = map[name];
         return i != null ? !!this._justPressed[i] : false;
     }
-
-    // Get the first connected gamepad
-    getGamepad(index = 0) {
-        const gamepads = navigator.getGamepads();
-        return gamepads[index] || null;
+    // Get trigger value (0.0 to 1.0) using simple button value
+    getTrigger(triggerName) {
+        if (!this.pad) return 0;
+        const idx = this.BUTTONS[triggerName];
+        if (idx == null) return 0;
+        const btn = this.pad.buttons[idx];
+        return btn ? (btn.value !== undefined ? btn.value : (btn.pressed ? 1 : 0)) : 0;
     }
 
-    // Check if a button is currently pressed
-    isButtonDown(buttonName, gamepadIndex = 0) {
-        const gamepad = this.currentState.get(gamepadIndex);
-        if (!gamepad) return false;
-
-        const buttonIndex = this.BUTTONS[buttonName];
-        if (buttonIndex === undefined) return false;
-
-        const button = gamepad.buttons[buttonIndex];
-        if (!button) return false;
-
-        // Triggers are analog, use threshold
-        if (buttonName === 'LT' || buttonName === 'RT') {
-            return button.value >= this.triggerThreshold;
-        }
-
-        return button.pressed;
-    }
-
-    // Check if a button was just pressed this frame
-    justPressed(buttonName, gamepadIndex = 0) {
-        const currentGamepad = this.currentState.get(gamepadIndex);
-        const previousGamepad = this.previousState.get(gamepadIndex);
-        
-        if (!currentGamepad) return false;
-
-        const buttonIndex = this.BUTTONS[buttonName];
-        if (buttonIndex === undefined) return false;
-
-        const currentButton = currentGamepad.buttons[buttonIndex];
-        const previousButton = previousGamepad?.buttons[buttonIndex];
-
-        if (!currentButton) return false;
-
-        const isDownNow = buttonName === 'LT' || buttonName === 'RT' 
-            ? currentButton.value >= this.triggerThreshold 
-            : currentButton.pressed;
-
-        const wasDownBefore = previousButton 
-            ? (buttonName === 'LT' || buttonName === 'RT' 
-                ? previousButton.value >= this.triggerThreshold 
-                : previousButton.pressed)
-            : false;
-
-        return isDownNow && !wasDownBefore;
-    }
-
-    // Check if a button was just released this frame
-    justReleased(buttonName, gamepadIndex = 0) {
-        const currentGamepad = this.currentState.get(gamepadIndex);
-        const previousGamepad = this.previousState.get(gamepadIndex);
-        
-        if (!previousGamepad) return false;
-
-        const buttonIndex = this.BUTTONS[buttonName];
-        if (buttonIndex === undefined) return false;
-
-        const currentButton = currentGamepad?.buttons[buttonIndex];
-        const previousButton = previousGamepad.buttons[buttonIndex];
-
-        if (!previousButton) return false;
-
-        const isDownNow = currentButton 
-            ? (buttonName === 'LT' || buttonName === 'RT' 
-                ? currentButton.value >= this.triggerThreshold 
-                : currentButton.pressed)
-            : false;
-
-        const wasDownBefore = buttonName === 'LT' || buttonName === 'RT' 
-            ? previousButton.value >= this.triggerThreshold 
-            : previousButton.pressed;
-
-        return !isDownNow && wasDownBefore;
-    }
-
-    // Get analog stick value with deadzone applied
-    getStick(stickName, gamepadIndex = 0) {
-        const gamepad = this.currentState.get(gamepadIndex);
-        if (!gamepad) return { x: 0, y: 0, magnitude: 0 };
-
-        let xAxis, yAxis;
-        if (stickName === 'LEFT') {
-            xAxis = this.AXES.LS_X;
-            yAxis = this.AXES.LS_Y;
-        } else if (stickName === 'RIGHT') {
-            xAxis = this.AXES.RS_X;
-            yAxis = this.AXES.RS_Y;
-        } else {
-            return { x: 0, y: 0, magnitude: 0 };
-        }
-
-        let x = gamepad.axes[xAxis] || 0;
-        let y = gamepad.axes[yAxis] || 0;
-
-        // Invert Y axis for intuitive up/down
-        y = -y;
-
-        // Calculate magnitude
-        const magnitude = Math.hypot(x, y);
-
-        // Apply deadzone
-        if (magnitude < this.deadzone) {
-            return { x: 0, y: 0, magnitude: 0 };
-        }
-
-        // Normalize after removing deadzone
-        const normalizedMagnitude = Math.min(1, (magnitude - this.deadzone) / (1 - this.deadzone));
-        const scale = normalizedMagnitude / magnitude;
-
-        return {
-            x: x * scale,
-            y: y * scale,
-            magnitude: normalizedMagnitude
-        };
-    }
-
-    // Get trigger value (0.0 to 1.0)
-    getTrigger(triggerName, gamepadIndex = 0) {
-        const gamepad = this.currentState.get(gamepadIndex);
-        if (!gamepad) return 0;
-
-        const buttonIndex = this.BUTTONS[triggerName];
-        if (buttonIndex === undefined) return 0;
-
-        const button = gamepad.buttons[buttonIndex];
-        return button ? button.value : 0;
-    }
-
-    // Get all currently pressed buttons
-    getPressedButtons(gamepadIndex = 0) {
+    // Get all currently pressed buttons (simple snapshot)
+    getPressedButtons() {
+        if (!this.pad) return [];
         const pressed = [];
-        for (const [name, index] of Object.entries(this.BUTTONS)) {
-            if (this.isButtonDown(name, gamepadIndex)) {
+        for (const [name, idx] of Object.entries(this.BUTTONS)) {
+            const b = this.pad.buttons[idx];
+            if (b && (b.pressed || (b.value && b.value > this.triggerThreshold))) {
                 pressed.push(name);
             }
         }
@@ -244,23 +145,16 @@ class GamepadManager {
     }
 
     // Controller vibration/rumble (if supported)
-    async rumble(intensity = 0.5, duration = 200, gamepadIndex = 0) {
-        const gamepad = this.currentState.get(gamepadIndex);
-        if (!gamepad || !gamepad.vibrationActuator) return;
-
+    async rumble(intensity = 0.5, duration = 200) {
+        if (!this.pad || !this.pad.vibrationActuator) return;
         try {
-            await gamepad.vibrationActuator.playEffect('dual-rumble', {
+            await this.pad.vibrationActuator.playEffect('dual-rumble', {
                 duration: duration,
                 strongMagnitude: intensity,
                 weakMagnitude: intensity * 0.7
             });
-        } catch (error) {
-            console.warn('Rumble not supported:', error);
+        } catch (err) {
+            // Fail silently; not all browsers support
         }
-    }
-
-    // Check if any gamepad is connected
-    isConnected(gamepadIndex = 0) {
-        return this.currentState.has(gamepadIndex);
     }
 }

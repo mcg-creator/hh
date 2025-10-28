@@ -79,9 +79,14 @@ class InputManager {
     update(ts = performance.now()) {
         this.keyboard.update();
         this.gamepad.update();
-        
-        // Prefer gamepad if any connected
-        this.preferGamepad = this.gamepad.isConnected();
+
+        // Prefer gamepad if any connected (auto-switch once detected)
+        if (this.gamepad.isConnected()) {
+            if (!this.preferGamepad) {
+                console.log('[INPUT] switched -> gamepad');
+            }
+            this.preferGamepad = true;
+        }
 
         // ----- SELECT (A button or keyboard) edge only
         const aPressed = this.preferGamepad ? this.gamepad.justPressed('A') : false;
