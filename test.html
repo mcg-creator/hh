@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROG Ally Input Test</title>
+    <style>
+        body { font-family: monospace; background: #000; color: #00ff00; padding: 20px; }
+        .log { margin: 5px 0; }
+        .status { font-size: 18px; margin: 10px 0; }
+        .controls { margin: 20px 0; border: 1px solid #00ff00; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🎮 ASUS ROG Ally Input Test</h1>
+    <div class="status" id="status">Initializing...</div>
+    
+    <div class="controls">
+        <strong>Test Instructions:</strong><br>
+        • D-pad: Should log "nav edge -> [direction]"<br>
+        • Left Stick: Should detect dominant axis<br>
+        • A Button: Should log "select" and trigger rumble<br>
+        • Keyboard arrows/spacebar: Should work as fallback<br>
+    </div>
+    
+    <div id="log"></div>
+
+    <!-- Include all the input classes -->
+    <script src="keyboard.js"></script>
+    <script src="gamepad.js"></script>
+    <script src="input.js"></script>
+    
+    <script>
+        let inputManager;
+        let statusEl = document.getElementById('status');
+        let logEl = document.getElementById('log');
+        
+        function log(message) {
+            const div = document.createElement('div');
+            div.className = 'log';
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.insertBefore(div, logEl.firstChild);
+            
+            // Keep only last 20 log entries
+            while (logEl.children.length > 20) {
+                logEl.removeChild(logEl.lastChild);
+            }
+        }
+        
+        function updateStatus() {
+            const method = inputManager.getActiveInputMethod();
+            const connected = inputManager.isGamepadConnected();
+            statusEl.textContent = `Input: ${method} | Gamepad: ${connected ? 'Connected' : 'Disconnected'}`;
+        }
+        
+        function init() {
+            inputManager = new InputManager();
+            
+            // Listen for input events
+            inputManager.on('nav', (event) => {
+                log(`🎯 NAV: ${event.dir} (${event.mode || 'unknown'}) via ${event.source || 'unknown'}`);
+            });
+            
+            inputManager.on('select', (event) => {
+                log(`✅ SELECT via ${event.source || 'unknown'}`);
+            });
+            
+            log('Input system initialized');
+            
+            // Start update loop
+            function tick() {
+                inputManager.update();
+                updateStatus();
+                requestAnimationFrame(tick);
+            }
+            tick();
+        }
+        
+        // Auto-start when DOM loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+        
+        // Test gamepad connection detection
+        window.addEventListener('gamepadconnected', (e) => {
+            log(`🎮 Gamepad Connected: ${e.gamepad.id}`);
+        });
+        
+        window.addEventListener('gamepaddisconnected', (e) => {
+            log(`🎮 Gamepad Disconnected: ${e.gamepad.id}`);
+        });
+    </script>
+</body>
+</html>
