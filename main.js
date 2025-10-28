@@ -149,6 +149,40 @@ function init() {
     ['keydown','mousedown','pointerdown','touchstart'].forEach(ev => {
         window.addEventListener(ev, attemptUnlockAudio, { once: true, passive: true });
     });
+
+    // Legacy-inspired immediate priming: attempt a muted play/pause very early
+    setTimeout(() => {
+        [navAudio, carouselAudio, carouselNavAudio].forEach(a => {
+            if (!a) return;
+            const originalVol = a.volume;
+            a.volume = 0;
+            a.play().then(() => {
+                a.pause();
+                a.currentTime = 0;
+                a.volume = originalVol;
+            }).catch(() => {
+                a.volume = originalVol;
+            });
+        });
+    }, 25); // slight delay to ensure elements created
+
+    // Gamepad-first unlock attempt: poll briefly for first button press if user starts with controller only
+    window.addEventListener('gamepadconnected', () => {
+        let polls = 0;
+        const maxPolls = 240; // ~4s at 60fps
+        const pollButtons = () => {
+            if (audioUnlocked) return; // already ok
+            const gp = navigator.getGamepads()[0];
+            if (gp && gp.buttons.some(b => b && b.pressed)) {
+                attemptUnlockAudio();
+                return;
+            }
+            if (polls++ < maxPolls) {
+                requestAnimationFrame(pollButtons);
+            }
+        };
+        requestAnimationFrame(pollButtons);
+    }, { once: true });
 }
 
 // Decide and play the proper navigation sound.
