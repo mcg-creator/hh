@@ -13,7 +13,8 @@ let audioUnlocked = false;
 // Track whether focus is currently on top navigation or inside a carousel.
 // We infer transitions based on vertical movement (up/down) nav events.
 let focusRegion = 'nav'; // 'nav' | 'carousel'
-let pendingSound = null; // queue first sound if fired before unlock
+let pendingSounds = []; // queue sounds if fired before unlock
+const audioDebug = window.location.search.includes('audiodebug');
 
 // Attempt to unlock audio playback after a user gesture (required by autoplay policies)
 function attemptUnlockAudio() {
@@ -37,15 +38,8 @@ function attemptUnlockAudio() {
     });
     Promise.all(playPromises).then(() => {
         audioUnlocked = true;
-        console.log('[AUDIO] Unlocked');
-        // replay queued sound if any
-        if (pendingSound) {
-            const { type } = pendingSound;
-            pendingSound = null;
-            if (type === 'nav') playNavSound();
-            else if (type === 'carousel') playCarouselSound();
-            else if (type === 'carouselRow') playCarouselNavSound();
-        }
+        console.log('[AUDIO] Unlocked via priming');
+        flushPendingSounds();
     }).catch(() => {
         // If fails (e.g., only gamepad input), prompt user gently
         console.log('[AUDIO] Unlock attempt failed; press any key or tap once to enable sound');
@@ -195,25 +189,56 @@ function handleNavSound(dir, mode) {
     // Vertical movement may switch focus region
     if (dir === 'down' && focusRegion === 'nav') {
         focusRegion = 'carousel';
-        if (!audioUnlocked) pendingSound = { type: 'carousel' }; else playCarouselSound();
+        queueOrPlay('carousel');
         return;
     } else if (dir === 'up' && focusRegion === 'carousel') {
         focusRegion = 'nav';
-        if (!audioUnlocked) pendingSound = { type: 'nav' }; else playNavSound();
+        queueOrPlay('nav');
         return;
     }
 
     // Horizontal movement inside current region
     if (dir === 'left' || dir === 'right') {
-        if (focusRegion === 'nav') {
-            // Simple nav bar item change
-            if (!audioUnlocked) pendingSound = { type: 'nav' }; else playNavSound();
-        } else {
-            // Carousel row movement
-            if (!audioUnlocked) pendingSound = { type: 'carouselRow' }; else playCarouselNavSound();
-        }
+        if (focusRegion === 'nav') queueOrPlay('nav'); else queueOrPlay('carouselRow');
     }
 }
+
+function queueOrPlay(type) {
+    if (audioUnlocked) {
+        playType(type);
+    } else {
+        pendingSounds.push(type);
+        if (audioDebug) console.log('[AUDIO] queued', type, 'pending count=', pendingSounds.length);
+    }
+}
+
+function playType(type) {
+    if (audioDebug) console.log('[AUDIO] play', type);
+    if (type === 'nav') playNavSound();
+    else if (type === 'carousel') playCarouselSound();
+    else if (type === 'carouselRow') playCarouselNavSound();
+}
+
+function flushPendingSounds() {
+    if (!pendingSounds.length) return;
+    if (audioDebug) console.log('[AUDIO] flushing', pendingSounds.length, 'sounds');
+    const toPlay = pendingSounds.slice();
+    pendingSounds.length = 0;
+    toPlay.forEach(playType);
+}
+
+// Diagnostics helper
+window.audioStatus = function() {
+    return {
+        unlocked: audioUnlocked,
+        focusRegion,
+        pendingCount: pendingSounds.length,
+        navReady: !!navAudio,
+        carouselReady: !!carouselAudio,
+        carouselRowReady: !!carouselNavAudio,
+        contextState: (window.AudioContext ? (window._sharedCtx && window._sharedCtx.state) : 'n/a')
+    };
+};
 
 function tick(ts) {
     if (!lastTick || ts - lastTick > 1000) {
