@@ -10,6 +10,9 @@ let carouselAudio;
 let carouselNavAudio;
 let lastTick = 0;
 let audioUnlocked = false;
+// Track whether focus is currently on top navigation or inside a carousel.
+// We infer transitions based on vertical movement (up/down) nav events.
+let focusRegion = 'nav'; // 'nav' | 'carousel'
 
 // Attempt to unlock audio playback after a user gesture (required by autoplay policies)
 function attemptUnlockAudio() {
@@ -72,6 +75,7 @@ function init() {
     // SUBSCRIBE to semantic events (critical)
     inputManager.on('nav', e => {
         attemptUnlockAudio(); // ensure audio primed before UI may attempt playback
+        handleNavSound(e.dir, e.mode); // play appropriate sound for this navigation
         moveFocus(e.dir);
     });
     inputManager.on('select', () => {
@@ -136,6 +140,37 @@ function init() {
     ['keydown','mousedown','pointerdown','touchstart'].forEach(ev => {
         window.addEventListener(ev, attemptUnlockAudio, { once: true, passive: true });
     });
+}
+
+// Decide and play the proper navigation sound.
+// dir: 'left' | 'right' | 'up' | 'down'
+// mode: 'edge' | 'repeat'
+function handleNavSound(dir, mode) {
+    if (!audioUnlocked) return; // wait until unlocked (attemptUnlockAudio will trigger soon)
+    // Only play on edge events to avoid overwhelming audio on repeats
+    if (mode !== 'edge') return;
+
+    // Vertical movement may switch focus region
+    if (dir === 'down' && focusRegion === 'nav') {
+        focusRegion = 'carousel';
+        playCarouselSound(); // entering carousel
+        return;
+    } else if (dir === 'up' && focusRegion === 'carousel') {
+        focusRegion = 'nav';
+        playNavSound(); // returning to nav bar
+        return;
+    }
+
+    // Horizontal movement inside current region
+    if (dir === 'left' || dir === 'right') {
+        if (focusRegion === 'nav') {
+            // Simple nav bar item change
+            playNavSound();
+        } else {
+            // Carousel row movement
+            playCarouselNavSound();
+        }
+    }
 }
 
 function tick(ts) {
