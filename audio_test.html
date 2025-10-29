@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test</title>
+</head>
+<body>
+    <h1>Audio Debug Test</h1>
+    <button onclick="testNavSound()">Test Nav Sound</button>
+    <button onclick="testCarouselSound()">Test Carousel Sound</button>
+    <button onclick="testCarouselRowSound()">Test Carousel Row Sound</button>
+    <button onclick="testGameSound()">Test Game Sound (Halo)</button>
+    <br><br>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function logMessage(msg) {
+            log.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+
+        // Create audio objects
+        const navAudio = new Audio('assets/sounds/nav.mp3');
+        const carouselAudio = new Audio('assets/sounds/carousel.MP3');
+        const carouselRowAudio = new Audio('assets/sounds/carousel_row.MP3');
+        const gameAudio = new Audio('assets/sounds/games/halo.MP3');
+
+        // Set volumes
+        navAudio.volume = 0.5;
+        carouselAudio.volume = 0.5;
+        carouselRowAudio.volume = 0.5;
+        gameAudio.volume = 0.5;
+
+        // Add event listeners for debugging
+        [navAudio, carouselAudio, carouselRowAudio, gameAudio].forEach((audio, index) => {
+            const names = ['nav', 'carousel', 'carouselRow', 'game'];
+            const name = names[index];
+            
+            audio.addEventListener('loadstart', () => logMessage(`${name}: Load started`));
+            audio.addEventListener('loadeddata', () => logMessage(`${name}: Data loaded`));
+            audio.addEventListener('canplay', () => logMessage(`${name}: Can play`));
+            audio.addEventListener('canplaythrough', () => logMessage(`${name}: Can play through`));
+            audio.addEventListener('play', () => logMessage(`${name}: Playing`));
+            audio.addEventListener('ended', () => logMessage(`${name}: Ended`));
+            audio.addEventListener('error', (e) => logMessage(`${name}: ERROR - ${e.target.error.message}`));
+        });
+
+        function testNavSound() {
+            logMessage('Testing nav sound...');
+            navAudio.currentTime = 0;
+            navAudio.play().catch(error => logMessage('Nav play failed: ' + error));
+        }
+
+        function testCarouselSound() {
+            logMessage('Testing carousel sound...');
+            carouselAudio.currentTime = 0;
+            carouselAudio.play().catch(error => logMessage('Carousel play failed: ' + error));
+        }
+
+        function testCarouselRowSound() {
+            logMessage('Testing carousel row sound...');
+            carouselRowAudio.currentTime = 0;
+            carouselRowAudio.play().catch(error => logMessage('Carousel row play failed: ' + error));
+        }
+
+        function testGameSound() {
+            logMessage('Testing game sound...');
+            gameAudio.currentTime = 0;
+            gameAudio.play().catch(error => logMessage('Game play failed: ' + error));
+        }
+
+        // Log audio context state
+        logMessage('AudioContext state: ' + (window.AudioContext ? 'Available' : 'Not available'));
+        if (window.AudioContext) {
+            try {
+                const ctx = new AudioContext();
+                logMessage('AudioContext created, state: ' + ctx.state);
+            } catch (e) {
+                logMessage('AudioContext creation failed: ' + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

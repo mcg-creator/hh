@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        button { margin: 5px; padding: 10px 15px; background: #333; color: #fff; border: 1px solid #666; cursor: pointer; }
+        button:hover { background: #444; }
+        .log { background: #222; padding: 10px; margin: 10px 0; border-radius: 5px; max-height: 300px; overflow-y: auto; }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Navigation Sound Test</h1>
+    
+    <div>
+        <h3>Manual Sound Tests</h3>
+        <button onclick="testNavDirectly()">🎵 Test Nav Sound (Direct)</button>
+        <button onclick="testCarouselDirectly()">🎶 Test Carousel Sound (Direct)</button>
+        <button onclick="testCarouselRowDirectly()">🎼 Test Carousel Row Sound (Direct)</button>
+    </div>
+    
+    <div>
+        <h3>Navigation System Tests</h3>
+        <button onclick="simulateNavigation('left')">⬅️ Simulate Left Nav</button>
+        <button onclick="simulateNavigation('right')">➡️ Simulate Right Nav</button>
+        <button onclick="simulateNavigation('up')">⬆️ Simulate Up Nav</button>
+        <button onclick="simulateNavigation('down')">⬇️ Simulate Down Nav</button>
+    </div>
+    
+    <div>
+        <h3>Focus Region Tests</h3>
+        <button onclick="setFocusRegion('nav')">📍 Set Focus: Nav</button>
+        <button onclick="setFocusRegion('carousel')">📍 Set Focus: Carousel</button>
+        <button onclick="checkFocusState()">❓ Check Focus State</button>
+    </div>
+    
+    <div>
+        <h3>SFX Tests</h3>
+        <button onclick="toggleSFX()">🔊 Toggle SFX</button>
+        <button onclick="checkSFXState()">❓ Check SFX State</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        // Set up SFX mode
+        let sfxMode = 'sfx_focus';
+        window.sfxMode = sfxMode;
+        
+        // Set up focus region tracking
+        let focusRegion = 'nav';
+        
+        function logMessage(msg, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            log.innerHTML += `<div class="${className}">[${timestamp}] ${msg}</div>`;
+            log.scrollTop = log.scrollHeight;
+            console.log(`[${timestamp}] ${msg}`);
+        }
+
+        // Create audio objects
+        const navAudio = new Audio('assets/sounds/nav.mp3');
+        const carouselAudio = new Audio('assets/sounds/carousel.MP3');
+        const carouselRowAudio = new Audio('assets/sounds/carousel_row.MP3');
+        
+        navAudio.volume = 0.7;
+        carouselAudio.volume = 0.7;
+        carouselRowAudio.volume = 0.7;
+
+        // Simulate the main.js sound functions
+        function playNavSound() {
+            if (window.sfxMode && window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX disabled, skipping nav sound', 'warning');
+                return;
+            }
+            
+            logMessage('🎵 Playing nav sound...', 'success');
+            if (navAudio) {
+                navAudio.currentTime = 0;
+                navAudio.play().then(() => {
+                    logMessage('✅ Nav sound played successfully', 'success');
+                }).catch(error => {
+                    logMessage('❌ Nav sound failed: ' + error.message, 'error');
+                });
+            }
+        }
+
+        function playCarouselSound() {
+            if (window.sfxMode && window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX disabled, skipping carousel sound', 'warning');
+                return;
+            }
+            
+            logMessage('🎶 Playing carousel sound...', 'success');
+            if (carouselAudio) {
+                carouselAudio.currentTime = 0;
+                carouselAudio.play().then(() => {
+                    logMessage('✅ Carousel sound played successfully', 'success');
+                }).catch(error => {
+                    logMessage('❌ Carousel sound failed: ' + error.message, 'error');
+                });
+            }
+        }
+
+        function playCarouselNavSound() {
+            if (window.sfxMode && window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX disabled, skipping carousel nav sound', 'warning');
+                return;
+            }
+            
+            logMessage('🎼 Playing carousel nav sound...', 'success');
+            if (carouselRowAudio) {
+                carouselRowAudio.currentTime = 0;
+                carouselRowAudio.play().then(() => {
+                    logMessage('✅ Carousel nav sound played successfully', 'success');
+                }).catch(error => {
+                    logMessage('❌ Carousel nav sound failed: ' + error.message, 'error');
+                });
+            }
+        }
+
+        // Simulate the main.js handleNavSound function
+        function handleNavSound(dir, mode) {
+            logMessage(`🔍 handleNavSound called: dir=${dir}, mode=${mode}, focusRegion=${focusRegion}`);
+            
+            // Only play on edge events to avoid overwhelming audio on repeats
+            if (mode !== 'edge') {
+                logMessage('⏸️ Skipping repeat event', 'warning');
+                return;
+            }
+
+            // Vertical movement may switch focus region
+            if (dir === 'down' && focusRegion === 'nav') {
+                focusRegion = 'carousel';
+                logMessage('🔄 Focus changed: nav → carousel');
+                playCarouselSound();
+                return;
+            } else if (dir === 'up' && focusRegion === 'carousel') {
+                focusRegion = 'nav';
+                logMessage('🔄 Focus changed: carousel → nav');
+                playNavSound();
+                return;
+            }
+
+            // Horizontal movement inside current region
+            if (dir === 'left' || dir === 'right') {
+                if (focusRegion === 'nav') {
+                    logMessage('🔄 Nav horizontal movement');
+                    playNavSound();
+                } else {
+                    logMessage('🔄 Carousel horizontal movement');
+                    playCarouselNavSound();
+                }
+            }
+        }
+
+        // Test functions
+        function testNavDirectly() {
+            logMessage('🧪 Testing nav sound directly...');
+            playNavSound();
+        }
+
+        function testCarouselDirectly() {
+            logMessage('🧪 Testing carousel sound directly...');
+            playCarouselSound();
+        }
+
+        function testCarouselRowDirectly() {
+            logMessage('🧪 Testing carousel row sound directly...');
+            playCarouselNavSound();
+        }
+
+        function simulateNavigation(dir) {
+            logMessage(`🎮 Simulating navigation: ${dir}`);
+            handleNavSound(dir, 'edge');
+        }
+
+        function setFocusRegion(region) {
+            focusRegion = region;
+            logMessage(`📍 Focus region set to: ${region}`, 'success');
+        }
+
+        function checkFocusState() {
+            logMessage(`📊 Current focus region: ${focusRegion}`);
+        }
+
+        function toggleSFX() {
+            if (window.sfxMode === 'sfx_focus') {
+                window.sfxMode = 'sfx_off_focus';
+                sfxMode = 'sfx_off_focus';
+                logMessage('🔇 SFX disabled', 'warning');
+            } else {
+                window.sfxMode = 'sfx_focus';
+                sfxMode = 'sfx_focus';
+                logMessage('🔊 SFX enabled', 'success');
+            }
+        }
+
+        function checkSFXState() {
+            logMessage(`🔊 SFX mode: ${window.sfxMode} (${window.sfxMode === 'sfx_focus' ? 'Enabled' : 'Disabled'})`);
+        }
+
+        // Make functions available globally like main.js does
+        window.playNavSound = playNavSound;
+        window.playCarouselSound = playCarouselSound;
+        window.playCarouselNavSound = playCarouselNavSound;
+
+        // Initialize
+        logMessage('🚀 Navigation test initialized');
+        logMessage(`📊 Initial state: focusRegion=${focusRegion}, sfxMode=${window.sfxMode}`);
+
+        // Auto-unlock audio on any click
+        document.addEventListener('click', () => {
+            [navAudio, carouselAudio, carouselRowAudio].forEach(audio => {
+                const originalVolume = audio.volume;
+                audio.volume = 0;
+                audio.play().then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = originalVolume;
+                }).catch(() => {});
+            });
+        }, { once: true });
+    </script>
+</body>
+</html>

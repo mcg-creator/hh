@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Audio Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        button { margin: 5px; padding: 10px 15px; background: #333; color: #fff; border: 1px solid #666; cursor: pointer; }
+        button:hover { background: #444; }
+        button:active { background: #222; }
+        .status { background: #333; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .log { background: #222; padding: 10px; margin: 10px 0; border-radius: 5px; max-height: 300px; overflow-y: auto; }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <h1>🔊 Comprehensive Audio Debug Tool</h1>
+    
+    <div class="status">
+        <h3>Current Status</h3>
+        <div id="audioStatus">Loading...</div>
+    </div>
+    
+    <div>
+        <h3>Audio Tests</h3>
+        <button onclick="unlockAudio()">🔓 Unlock Audio</button>
+        <button onclick="testNavSound()">🎵 Test Nav Sound</button>
+        <button onclick="testCarouselSound()">🎶 Test Carousel Sound</button>
+        <button onclick="testCarouselRowSound()">🎼 Test Carousel Row Sound</button>
+        <button onclick="testGameSound()">🎮 Test Game Sound (Halo)</button>
+        <button onclick="testAllSounds()">🎯 Test All Sounds</button>
+    </div>
+    
+    <div>
+        <h3>SFX Controls</h3>
+        <button onclick="toggleSFX()">🔊 Toggle SFX Mode</button>
+        <button onclick="checkSFXMode()">❓ Check SFX Mode</button>
+    </div>
+    
+    <div>
+        <h3>System Info</h3>
+        <button onclick="checkAudioContext()">🔍 Check AudioContext</button>
+        <button onclick="checkAudioPermissions()">🔐 Check Audio Permissions</button>
+        <button onclick="clearLog()">🗑️ Clear Log</button>
+    </div>
+    
+    <div class="log" id="log"></div>
+
+    <script>
+        let audioUnlocked = false;
+        let sfxMode = 'sfx_focus'; // Default to enabled
+        window.sfxMode = sfxMode;
+
+        // Create audio objects
+        const navAudio = new Audio('assets/sounds/nav.mp3');
+        const carouselAudio = new Audio('assets/sounds/carousel.MP3');
+        const carouselRowAudio = new Audio('assets/sounds/carousel_row.MP3');
+        const gameAudio = new Audio('assets/sounds/games/halo.MP3');
+
+        // Set volumes
+        navAudio.volume = 0.7;
+        carouselAudio.volume = 0.7;
+        carouselRowAudio.volume = 0.7;
+        gameAudio.volume = 0.7;
+
+        const log = document.getElementById('log');
+        const statusDiv = document.getElementById('audioStatus');
+        
+        function logMessage(msg, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            log.innerHTML += `<div class="${className}">[${timestamp}] ${msg}</div>`;
+            log.scrollTop = log.scrollHeight;
+            console.log(`[${timestamp}] ${msg}`);
+        }
+
+        function updateStatus() {
+            const status = {
+                audioUnlocked,
+                sfxMode: window.sfxMode,
+                audioContext: window.AudioContext ? 'Available' : 'Not Available',
+                userAgent: navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent,
+                volumes: {
+                    nav: navAudio.volume,
+                    carousel: carouselAudio.volume,
+                    carouselRow: carouselRowAudio.volume,
+                    game: gameAudio.volume
+                }
+            };
+            
+            statusDiv.innerHTML = `
+                <strong>Audio Unlocked:</strong> ${status.audioUnlocked ? '✅ Yes' : '❌ No'}<br>
+                <strong>SFX Mode:</strong> ${status.sfxMode} ${status.sfxMode === 'sfx_focus' ? '✅ Enabled' : '❌ Disabled'}<br>
+                <strong>AudioContext:</strong> ${status.audioContext}<br>
+                <strong>Platform:</strong> ${status.userAgent.includes('Windows') ? 'Windows' : 'Mobile/Other'}<br>
+                <strong>Volumes:</strong> Nav: ${status.volumes.nav}, Carousel: ${status.volumes.carousel}, Row: ${status.volumes.carouselRow}, Game: ${status.volumes.game}
+            `;
+        }
+
+        // Add event listeners for debugging
+        [navAudio, carouselAudio, carouselRowAudio, gameAudio].forEach((audio, index) => {
+            const names = ['nav', 'carousel', 'carouselRow', 'game'];
+            const name = names[index];
+            
+            audio.addEventListener('loadstart', () => logMessage(`${name}: Load started`));
+            audio.addEventListener('loadeddata', () => logMessage(`${name}: Data loaded`, 'success'));
+            audio.addEventListener('canplay', () => logMessage(`${name}: Can play`, 'success'));
+            audio.addEventListener('canplaythrough', () => logMessage(`${name}: Can play through`, 'success'));
+            audio.addEventListener('play', () => logMessage(`${name}: Playing`, 'success'));
+            audio.addEventListener('ended', () => logMessage(`${name}: Ended`));
+            audio.addEventListener('error', (e) => logMessage(`${name}: ERROR - ${e.target.error?.message || 'Unknown error'}`, 'error'));
+            audio.addEventListener('stalled', () => logMessage(`${name}: Stalled`, 'warning'));
+            audio.addEventListener('suspend', () => logMessage(`${name}: Suspended`, 'warning'));
+        });
+
+        function unlockAudio() {
+            logMessage('🔓 Attempting to unlock audio...');
+            const audios = [navAudio, carouselAudio, carouselRowAudio, gameAudio];
+            
+            const playPromises = audios.map(audio => {
+                const originalVolume = audio.volume;
+                audio.volume = 0;
+                return audio.play().then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = originalVolume;
+                    logMessage(`✅ Unlocked: ${audio.src.split('/').pop()}`, 'success');
+                }).catch(err => {
+                    audio.volume = originalVolume;
+                    logMessage(`❌ Failed to unlock: ${audio.src.split('/').pop()} - ${err.message}`, 'error');
+                });
+            });
+            
+            Promise.all(playPromises).then(() => {
+                audioUnlocked = true;
+                logMessage('🎉 All audio unlocked successfully!', 'success');
+                updateStatus();
+            }).catch(() => {
+                logMessage('❌ Some audio failed to unlock', 'error');
+                updateStatus();
+            });
+        }
+
+        function testNavSound() {
+            if (window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX is disabled, skipping nav sound', 'warning');
+                return;
+            }
+            logMessage('🎵 Testing nav sound...');
+            navAudio.currentTime = 0;
+            navAudio.play().catch(error => logMessage(`❌ Nav play failed: ${error.message}`, 'error'));
+        }
+
+        function testCarouselSound() {
+            if (window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX is disabled, skipping carousel sound', 'warning');
+                return;
+            }
+            logMessage('🎶 Testing carousel sound...');
+            carouselAudio.currentTime = 0;
+            carouselAudio.play().catch(error => logMessage(`❌ Carousel play failed: ${error.message}`, 'error'));
+        }
+
+        function testCarouselRowSound() {
+            if (window.sfxMode === 'sfx_off_focus') {
+                logMessage('🔇 SFX is disabled, skipping carousel row sound', 'warning');
+                return;
+            }
+            logMessage('🎼 Testing carousel row sound...');
+            carouselRowAudio.currentTime = 0;
+            carouselRowAudio.play().catch(error => logMessage(`❌ Carousel row play failed: ${error.message}`, 'error'));
+        }
+
+        function testGameSound() {
+            logMessage('🎮 Testing game sound...');
+            gameAudio.currentTime = 0;
+            gameAudio.play().catch(error => logMessage(`❌ Game play failed: ${error.message}`, 'error'));
+        }
+
+        function testAllSounds() {
+            logMessage('🎯 Testing all sounds in sequence...');
+            unlockAudio();
+            
+            setTimeout(() => testNavSound(), 500);
+            setTimeout(() => testCarouselSound(), 1500);
+            setTimeout(() => testCarouselRowSound(), 2500);
+            setTimeout(() => testGameSound(), 3500);
+        }
+
+        function toggleSFX() {
+            if (window.sfxMode === 'sfx_focus') {
+                window.sfxMode = 'sfx_off_focus';
+                sfxMode = 'sfx_off_focus';
+                logMessage('🔇 SFX disabled', 'warning');
+            } else {
+                window.sfxMode = 'sfx_focus';
+                sfxMode = 'sfx_focus';
+                logMessage('🔊 SFX enabled', 'success');
+            }
+            updateStatus();
+        }
+
+        function checkSFXMode() {
+            logMessage(`📊 Current SFX mode: ${window.sfxMode} (${window.sfxMode === 'sfx_focus' ? 'Enabled' : 'Disabled'})`);
+        }
+
+        function checkAudioContext() {
+            if (window.AudioContext || window.webkitAudioContext) {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioCtx();
+                    logMessage(`🔍 AudioContext state: ${ctx.state}`, ctx.state === 'running' ? 'success' : 'warning');
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(() => {
+                            logMessage('🔄 AudioContext resumed', 'success');
+                        });
+                    }
+                } catch (e) {
+                    logMessage(`❌ AudioContext error: ${e.message}`, 'error');
+                }
+            } else {
+                logMessage('❌ AudioContext not available', 'error');
+            }
+        }
+
+        function checkAudioPermissions() {
+            if (navigator.permissions) {
+                navigator.permissions.query({name: 'microphone'}).then(permission => {
+                    logMessage(`🔐 Microphone permission: ${permission.state}`);
+                });
+            } else {
+                logMessage('🔐 Permissions API not available');
+            }
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+            logMessage('🗑️ Log cleared');
+        }
+
+        // Initialize
+        logMessage('🚀 Audio debug tool initialized');
+        logMessage(`🌐 User agent: ${navigator.userAgent}`);
+        updateStatus();
+
+        // Auto-update status every 2 seconds
+        setInterval(updateStatus, 2000);
+
+        // Try to unlock on any user interaction
+        ['click', 'keydown', 'touchstart'].forEach(event => {
+            document.addEventListener(event, () => {
+                if (!audioUnlocked) {
+                    unlockAudio();
+                }
+            }, { once: true });
+        });
+    </script>
+</body>
+</html>

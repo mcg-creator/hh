@@ -1555,6 +1555,7 @@
 
     let selectedIndex = 0;
     let navigationFocus = "nav"; // "nav" for navigation bar, "carousel" for games/apps carousel
+    window.navigationFocus = navigationFocus; // Make sure it's available globally
     const nav = document.getElementById("top-nav");
     const content = document.getElementById("content");
     const gamesCarousel = document.getElementById("games-carousel");
@@ -2023,9 +2024,9 @@
       navigationFocus = "nav"; // Reset focus to nav when changing tabs
       renderNav();
       // Play navigation sound
-      if (window.playNavSound) {
-        window.playNavSound();
-      }
+      // if (window.playNavSound) {
+      //   window.playNavSound();
+      // }
     }
 
     function updateFocusVisuals() {
@@ -2139,35 +2140,44 @@
 
     // Bridge functions for unified input system (called by InputManager)
     window.handleNavigationInput = function(direction) {
+      console.log('[NAV DEBUG] handleNavigationInput called with direction:', direction, 'navigationFocus:', navigationFocus);
+      
       if (navigationFocus === "nav") {
         // Navigation bar is focused - left/right moves through tabs
         if (direction === "right") {
           selectedIndex = (selectedIndex + 1) % tabs.length;
           renderNav();
-          // Play navigation sound
-          if (window.playNavSound) {
-            window.playNavSound();
-          }
+          // Play navigation sound - DISABLED: handled by main.js
+          // if (window.playNavSound) {
+          //   window.playNavSound();
+          // }
         } else if (direction === "left") {
           selectedIndex = (selectedIndex - 1 + tabs.length) % tabs.length;
           renderNav();
-          // Play navigation sound
-          if (window.playNavSound) {
-            window.playNavSound();
-          }
+          // Play navigation sound - DISABLED: handled by main.js
+          // if (window.playNavSound) {
+          //   window.playNavSound();
+          // }
         } else if (direction === "down") {
           // Move focus down to carousel (games, apps, friends, gallery, notifications, settings, or copilot)
+          console.log('[NAV DEBUG] DOWN pressed, current tab:', tabs[selectedIndex], 'navigationFocus:', navigationFocus);
           if (tabs[selectedIndex] === "games" || tabs[selectedIndex] === "apps" || tabs[selectedIndex] === "friends" || tabs[selectedIndex] === "gallery" || tabs[selectedIndex] === "notifications" || tabs[selectedIndex] === "settings" || tabs[selectedIndex] === "copilot") {
             navigationFocus = "carousel";
+            window.navigationFocus = navigationFocus; // Explicitly expose to window
+            console.log('[NAV DEBUG] navigationFocus changed to:', navigationFocus);
+            console.log('[NAV DEBUG] window.navigationFocus set to:', window.navigationFocus);
             updateFocusVisuals();
-            // Play carousel sound when moving from nav to carousel
-            if (window.playCarouselSound) {
-              window.playCarouselSound();
-            }
+            // Play carousel sound when moving from nav to carousel - DISABLED: handled by main.js
+            // if (window.playCarouselSound) {
+            //   window.playCarouselSound();
+            // }
+          } else {
+            console.log('[NAV DEBUG] Tab does not support carousel:', tabs[selectedIndex]);
           }
         }
       } else if (navigationFocus === "carousel") {
         // Carousel is focused - left/right moves through items
+        console.log('[NAV DEBUG] Carousel navigation:', direction, 'current tab:', tabs[selectedIndex]);
         if (direction === "right") {
           if (tabs[selectedIndex] === "games") {
             navigateGamesCarousel('right');
@@ -2184,10 +2194,10 @@
           } else if (tabs[selectedIndex] === "copilot") {
             navigateCopilotCarousel('right');
           }
-          // Play carousel navigation sound
-          if (window.playCarouselNavSound) {
-            window.playCarouselNavSound();
-          }
+          // Play carousel navigation sound - DISABLED: handled by main.js
+          // if (window.playCarouselNavSound) {
+          //   window.playCarouselNavSound();
+          // }
         } else if (direction === "left") {
           if (tabs[selectedIndex] === "games") {
             navigateGamesCarousel('left');
@@ -2204,39 +2214,55 @@
           } else if (tabs[selectedIndex] === "copilot") {
             navigateCopilotCarousel('left');
           }
-          // Play carousel navigation sound
-          if (window.playCarouselNavSound) {
-            window.playCarouselNavSound();
-          }
+          // Play carousel navigation sound - DISABLED: handled by main.js
+          // if (window.playCarouselNavSound) {
+          //   window.playCarouselNavSound();
+          // }
         } else if (direction === "up") {
           // Move focus back up to navigation bar, or navigate stack items for settings/copilot
+          console.log('[NAV DEBUG] UP pressed in carousel, current tab:', tabs[selectedIndex]);
           if (tabs[selectedIndex] === "settings") {
             // Try to navigate within stack first, if it returns false then go to nav bar
+            console.log('[NAV DEBUG] Settings tab - trying stack navigation');
             if (!navigateStackItems('up')) {
+              console.log('[NAV DEBUG] Stack navigation returned false - going to nav');
               navigationFocus = "nav";
+              window.navigationFocus = navigationFocus; // Explicitly expose to window
+              console.log('[NAV DEBUG] navigationFocus set back to:', navigationFocus);
               updateFocusVisuals();
-              // Play nav sound when moving from carousel to nav
-              if (window.playNavSound) {
-                window.playNavSound();
-              }
+              // Play nav sound when moving from carousel to nav - DISABLED: handled by main.js
+              // if (window.playNavSound) {
+              //   window.playNavSound();
+              // }
+            } else {
+              console.log('[NAV DEBUG] Stack navigation returned true - staying in carousel');
             }
           } else if (tabs[selectedIndex] === "copilot") {
             // Try to navigate within stack first, if it returns false then go to nav bar
+            console.log('[NAV DEBUG] Copilot tab - trying stack navigation');
             if (!navigateCopilotStackItems('up')) {
+              console.log('[NAV DEBUG] Copilot stack navigation returned false - going to nav');
               navigationFocus = "nav";
+              window.navigationFocus = navigationFocus; // Explicitly expose to window
+              console.log('[NAV DEBUG] navigationFocus set back to:', navigationFocus);
               updateFocusVisuals();
-              // Play nav sound when moving from carousel to nav
-              if (window.playNavSound) {
-                window.playNavSound();
-              }
+              // Play nav sound when moving from carousel to nav - DISABLED: handled by main.js
+              // if (window.playNavSound) {
+              //   window.playNavSound();
+              // }
+            } else {
+              console.log('[NAV DEBUG] Copilot stack navigation returned true - staying in carousel');
             }
           } else {
+            console.log('[NAV DEBUG] Non-stack carousel - going directly to nav');
             navigationFocus = "nav";
+            window.navigationFocus = navigationFocus; // Explicitly expose to window
+            console.log('[NAV DEBUG] navigationFocus set back to:', navigationFocus);
             updateFocusVisuals();
-            // Play nav sound when moving from carousel to nav
-            if (window.playNavSound) {
-              window.playNavSound();
-            }
+            // Play nav sound when moving from carousel to nav - DISABLED: handled by main.js
+            // if (window.playNavSound) {
+            //   window.playNavSound();
+            // }
           }
         } else if (direction === "down") {
           // Navigate stack items for settings/copilot, but don't cycle at bottom
@@ -2304,10 +2330,10 @@
         
         console.log(`Battery mode cycled to: ${batteryMode}`);
         
-        // Play carousel row navigation sound for battery mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // Play carousel row navigation sound for battery mode change - DISABLED: handled by main.js
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new battery mode
         updateSettingsCarousel();
@@ -2335,9 +2361,9 @@
         console.log(`WiFi mode cycled to: ${wifiMode}`);
         
         // Play carousel row navigation sound for wifi mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new wifi mode
         updateSettingsCarousel();
@@ -2371,9 +2397,9 @@
         }
         
         // Play carousel row navigation sound for airplane mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new airplane mode
         updateSettingsCarousel();
@@ -2407,9 +2433,9 @@
         }
         
         // Play carousel row navigation sound for music mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new music mode
         updateSettingsCarousel();
@@ -2441,9 +2467,9 @@
         window.sfxMode = sfxMode;
         
         // Play carousel row navigation sound for sfx mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new sfx mode
         updateSettingsCarousel();
@@ -2471,9 +2497,9 @@
         console.log(`Captions mode cycled to: ${captionsMode}`);
         
         // Play carousel row navigation sound for captions mode change
-        if (window.playCarouselNavSound) {
-          window.playCarouselNavSound();
-        }
+        // if (window.playCarouselNavSound) {
+        //   window.playCarouselNavSound();
+        // }
         
         // Update the settings carousel to reflect the new captions mode
         updateSettingsCarousel();
@@ -3061,24 +3087,34 @@
     
     function navigateStackItems(direction) {
       const currentSetting = settings[currentSettingIndex];
-      if (currentSetting.type !== 'stack') return false;
+      console.log('[NAV DEBUG] navigateStackItems:', direction, 'currentSetting:', currentSetting.title, 'type:', currentSetting.type, 'selectedItem:', currentSetting.selectedItem);
+      
+      if (currentSetting.type !== 'stack') {
+        console.log('[NAV DEBUG] Not a stack type, returning false');
+        return false;
+      }
       
       const totalItems = currentSetting.items.length;
+      console.log('[NAV DEBUG] Stack has', totalItems, 'items');
       
       if (direction === 'down') {
         // Check if we're at the last item - if so, don't cycle, return false to allow other navigation
         if (currentSetting.selectedItem === totalItems - 1) {
+          console.log('[NAV DEBUG] At last item, returning false');
           return false; // Don't handle, let other navigation take over
         }
         // Move to next item in stack
         currentSetting.selectedItem = currentSetting.selectedItem + 1;
+        console.log('[NAV DEBUG] Moved down to item', currentSetting.selectedItem);
       } else if (direction === 'up') {
         // Check if we're at the first item - if so, don't cycle, return false to allow navigation to nav bar
         if (currentSetting.selectedItem === 0) {
+          console.log('[NAV DEBUG] At first item, returning false to go to nav');
           return false; // Don't handle, let other navigation take over
         }
         // Move to previous item in stack
         currentSetting.selectedItem = currentSetting.selectedItem - 1;
+        console.log('[NAV DEBUG] Moved up to item', currentSetting.selectedItem);
       }
       
       // Update the displayed images and focus states
@@ -3086,9 +3122,9 @@
       updateBottomControls(); // Update button directions when navigating within stack
       
       // Play carousel navigation sound for stack item focus
-      if (window.playCarouselNavSound) {
-        window.playCarouselNavSound();
-      }
+      // if (window.playCarouselNavSound) {
+      //   window.playCarouselNavSound();
+      // }
       
       return true; // Handled the navigation
     }
@@ -3131,9 +3167,9 @@
       updateBottomControls(); // Update button directions when navigating within stack
       
       // Play carousel navigation sound for stack item focus
-      if (window.playCarouselNavSound) {
-        window.playCarouselNavSound();
-      }
+      // if (window.playCarouselNavSound) {
+      //   window.playCarouselNavSound();
+      // }
       
       return true; // Handled the navigation
     }
